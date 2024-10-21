@@ -5,18 +5,26 @@ import * as ImagePicker from "expo-image-picker";
 
 import IconButton from "@/components/IconButton";
 import CircleButton from "@/components/CircleButton";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import EmojiPicker from "@/components/EmojiPicker";
 import EmojiList from "@/components/EmojiList";
 import EmojiSticker from "@/components/EmojiSticker";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
+import * as MediaLibrary from "expo-media-library";
+import { captureRef } from "react-native-view-shot";
 
 const PlaceholderImage = require("@/assets/images/background-image.png");
 export default function Index() {
+  const [status, requestPermission] = MediaLibrary.usePermissions();
   const [selectedImage, setSelectedImage] = useState<string | undefined>();
   const [showButtons, setShowButtons] = useState<boolean>(false);
-  const [isModalVisible, setModalVisible] = useState<boolean>(false);
-  const [pickEmoji, setPickedEmoji] = useState<string | undefined>(undefined);
+  const [isModalVisible, setIsModalVisible] = useState<boolean>(false);
+  const [pickEmoji, setPickEmoji] = useState<string | undefined>(undefined);
+  const imageRef = useRef<View>(null);
 
+  if (status === null) {
+    requestPermission();
+  }
   const pickImageAsync = async () => {
     let result = await ImagePicker.launchImageLibraryAsync({
       allowsEditing: true,
@@ -35,22 +43,40 @@ export default function Index() {
     setShowButtons(false);
   };
   const onAddSticker = () => {
-    setModalVisible(true);
+    setIsModalVisible(true);
   };
-  const onSaveImageSync = () => {};
+  const onSaveImageSync = async () => {
+    try {
+      const localUri = await captureRef(imageRef, {
+        height: 440,
+        quality: 1,
+      });
+
+      await MediaLibrary.saveToLibraryAsync(localUri);
+      if (localUri) {
+        alert("Image saved successfully");
+      }
+    } catch (e) {
+      console.log("e", e);
+    }
+  };
 
   const onModalClose = () => {
-    setModalVisible(false);
+    setIsModalVisible(false);
   };
 
   return (
-    <View style={styles.container}>
+    <GestureHandlerRootView style={styles.container}>
       <View style={styles.imageContainer}>
-        <ImageViewer
-          imgSource={PlaceholderImage}
-          selectedImage={selectedImage}
-        />
-        {pickEmoji && <EmojiSticker imageSize={40} stickerSource={pickEmoji} />}
+        <View ref={imageRef} collapsable={false}>
+          <ImageViewer
+            imgSource={PlaceholderImage}
+            selectedImage={selectedImage}
+          />
+          {pickEmoji && (
+            <EmojiSticker imageSize={40} stickerSource={pickEmoji} />
+          )}
+        </View>
       </View>
       {showButtons ? (
         <View style={styles.optionsContainer}>
@@ -75,9 +101,9 @@ export default function Index() {
         </View>
       )}
       <EmojiPicker isVisible={isModalVisible} onClose={onModalClose}>
-        <EmojiList onCloseModal={onModalClose} onSelect={setPickedEmoji} />
+        <EmojiList onCloseModal={onModalClose} onSelect={setPickEmoji} />
       </EmojiPicker>
-    </View>
+    </GestureHandlerRootView>
   );
 }
 
